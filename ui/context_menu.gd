@@ -174,23 +174,15 @@ func _execute_action(action_name: String) -> void:
 			else:
 				stats.feed(5.0)
 				print("[Menú] 🍎 Alimentada (sin ítems, ración básica)")
-			# Trigger estado de comer en la máquina de estados
-			_notify_main("on_user_feed")
 		"play":
 			stats.play(15.0)
 			stats.add_xp(10)
 			print("[Menú] 🎮 ¡Jugó con la mascota! +10 XP")
-			_notify_main("on_user_play")
 		"rest":
 			stats.rest(20.0)
 			print("[Menú] 💤 La mascota descansó.")
 		"inventory":
 			_print_inventory()
-			# Abrir panel visual de inventario
-			var inv_panel := get_parent().get_node_or_null("InventoryPanel")
-			if inv_panel and inv_panel.has_method("show_panel"):
-				var viewport_center := get_viewport_rect().size / 2.0
-				inv_panel.call("show_panel", viewport_center)
 		"stats":
 			_print_detailed_stats()
 		"quit":
@@ -201,14 +193,6 @@ func _execute_action(action_name: String) -> void:
 	action_selected.emit(action_name)
 
 
-## Notifica al nodo Main para que active la transición de estado correspondiente.
-func _notify_main(method_name: String) -> void:
-	# Subir por el árbol: ContextMenu → PetCanvas → Main
-	var main_node := get_parent()
-	if main_node:
-		main_node = main_node.get_parent()
-	if main_node and main_node.has_method(method_name):
-		main_node.call(method_name)
 
 
 func _print_inventory() -> void:

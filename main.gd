@@ -4,6 +4,7 @@ extends Node2D
 ## orquesta: StateMachine, Movement, Particles, AIBrain, Diálogo, Audio, Toasts.
 
 signal pet_position_changed(new_position: Vector2)
+signal user_action_triggered(action_type: String)
 
 ## --- Referencias a Nodos de Escena ---
 @onready var pet_sprite: Node2D = $PetCanvas/PetSprite
@@ -123,6 +124,11 @@ func _connect_ui() -> void:
 	if is_instance_valid(inventory_panel) and inventory_panel.has_signal("item_used"):
 		inventory_panel.item_used.connect(_on_inventory_item_used)
 
+	# Conectar menú contextual
+	var context_menu := $PetCanvas/ContextMenu
+	if is_instance_valid(context_menu) and context_menu.has_signal("action_selected"):
+		context_menu.action_selected.connect(_on_context_menu_action)
+
 
 ## --- Señales de Stats ---
 
@@ -223,6 +229,21 @@ func _on_dialogue_requested(text: String) -> void:
 		dialogue_bubble.show_message(text)
 
 
+## --- Acciones del Usuario ---
+
+func _on_context_menu_action(action_name: String) -> void:
+	match action_name:
+		"feed":
+			on_user_feed()
+		"play":
+			on_user_play()
+		"rest":
+			if state_machine:
+				state_machine.transition_to(PetStateMachine.State.SLEEPING)
+		"inventory":
+			if inventory_panel:
+				inventory_panel.show_panel(get_viewport_rect().size / 2.0)
+
 ## --- Inventario ---
 
 func _on_inventory_item_used(item: Resource) -> void:
@@ -268,7 +289,7 @@ func _state_to_visual_name(state: PetStateMachine.State) -> String:
 		_: return "idle"
 
 
-## --- Métodos Públicos (usados por PetCanvas/ContextMenu) ---
+## --- Métodos Públicos (Orquestación de Acciones) ---
 
 func on_user_feed() -> void:
 	if state_machine:
@@ -277,6 +298,7 @@ func on_user_feed() -> void:
 		ai_brain.notify_action("fed")
 	if AudioManager:
 		AudioManager.play_eat()
+	user_action_triggered.emit("feed")
 
 
 func on_user_play() -> void:
@@ -286,6 +308,7 @@ func on_user_play() -> void:
 		ai_brain.notify_action("played")
 	if AudioManager:
 		AudioManager.play_play()
+	user_action_triggered.emit("play")
 
 
 ## --- Logging ---

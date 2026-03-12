@@ -11,88 +11,91 @@ extends Node2D
 var _sprites: Dictionary = {}
 
 ## --- Configuración ---
-const SPRITE_SCALE: float = 0.7
-const CROSSFADE_DURATION: float = 0.35    # Duración del crossfade entre estados
-const IDLE_BOB_AMPLITUDE: float = 4.0
-const IDLE_BREATHE_SCALE: float = 0.02    # Variación de escala al respirar
-const ANTICIPATION_DURATION: float = 0.15 # Preparación antes de acción
-const SQUASH_AMOUNT: float = 0.12         # Intensidad del squash & stretch
+const SPRITE_SCALE: float = 6.0           # Escala aumentada para pixel art (24x24 -> 144x144)
+const CROSSFADE_DURATION: float = 0.2     # Crossfade más rápido para pixel art
+const IDLE_BOB_AMPLITUDE: float = 3.0
+const IDLE_BREATHE_SCALE: float = 0.015
+const ANTICIPATION_DURATION: float = 0.12
+const SQUASH_AMOUNT: float = 0.08
+
+## --- Configuración de Animación (Frames de 24x24) ---
+const HFRAMES: int = 24
+const FRAME_DURATION: float = 0.12
+
+const ANIM_DATA: Dictionary = {
+	"idle": {"frames": [0, 1, 2, 3], "loop": true},
+	"walking": {"frames": [4, 5, 6, 7, 8, 9], "loop": true},
+	"eating": {"frames": [10, 11, 12, 11], "loop": true},
+	"sad": {"frames": [13, 14, 15], "loop": true},
+	"sleeping": {"frames": [17, 18, 19, 20], "loop": true},
+	"playing": {"frames": [4, 5, 10, 11, 4, 5], "loop": true},
+}
 
 ## --- Nodos internos ---
-var _sprite_front: Sprite2D = null  # Sprite visible actual
-var _sprite_back: Sprite2D = null   # Sprite que sale (para crossfade)
+var _sprite_front: Sprite2D = null
+var _sprite_back: Sprite2D = null
 
 ## --- Estado ---
 var _base_y: float = 0.0
 var _anim_tween: Tween = null
 var _crossfade_tween: Tween = null
+var _frame_tween: Tween = null
 var _visual_state: String = "idle"
 var _facing_right: bool = true
 var _current_mood: float = 1.0
 
-## --- Sprite Paths ---
-const SPRITE_PATHS: Dictionary = {
-	"idle": "res://assets/sprites/dino_idle.png",
-	"sleeping": "res://assets/sprites/dino_sleeping.png",
-	"eating": "res://assets/sprites/dino_eating.png",
-	"playing": "res://assets/sprites/dino_playing.png",
-	"sad": "res://assets/sprites/dino_sad.png",
-	"walking": "res://assets/sprites/dino_walking.png",
-}
+## --- Sprite Sheet Path ---
+const MAIN_SHEET_PATH: String = "res://dinoCharactersVersion1.1/sheets/DinoSprites - doux.png"
 
 
 func _ready() -> void:
 	# Crear los dos Sprite2D para crossfade
 	_sprite_back = Sprite2D.new()
 	_sprite_back.name = "SpriteBack"
+	_sprite_back.hframes = HFRAMES
+	_sprite_back.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(_sprite_back)
 	
 	_sprite_front = Sprite2D.new()
 	_sprite_front.name = "SpriteFront"
+	_sprite_front.hframes = HFRAMES
+	_sprite_front.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(_sprite_front)
 	
-	# Cargar sprites
-	_load_sprites()
+	# Cargar sprite sheet
+	_load_sheet()
 	
 	# Configurar escala y posición
 	_sprite_front.scale = Vector2(SPRITE_SCALE, SPRITE_SCALE)
 	_sprite_back.scale = Vector2(SPRITE_SCALE, SPRITE_SCALE)
 	_sprite_back.modulate.a = 0.0
 	
-	# Aplicar sprite idle
-	if _sprites.has("idle"):
-		_sprite_front.texture = _sprites["idle"] as Texture2D
-	
 	# Centrar en viewport
 	var viewport_size := get_viewport_rect().size
 	position = viewport_size / 2.0
 	_base_y = position.y
 	
-	# Iniciar idle
-	_start_idle_animation()
-	print("[PetSprite] ✅ Sistema de animación profesional inicializado (%d sprites)." % _sprites.size())
+	# Iniciar con idle
+	set_visual_state("idle")
+	print("[PetSprite] ✅ Sistema de animación pixel-art inicializado.")
 
 
-## --- Carga de Sprites ---
+## --- Carga de Assets ---
 
-func _load_sprites() -> void:
-	for state_name: String in SPRITE_PATHS:
-		var path: String = SPRITE_PATHS[state_name]
-		if ResourceLoader.exists(path):
-			var tex := load(path) as Texture2D
-			if tex:
-				_sprites[state_name] = tex
-		else:
-			print("[PetSprite] ⚠️ Sprite no encontrado: %s" % path)
-	
-	if _sprites.is_empty():
+func _load_sheet() -> void:
+	if ResourceLoader.exists(MAIN_SHEET_PATH):
+		var tex := load(MAIN_SHEET_PATH) as Texture2D
+		_sprite_front.texture = tex
+		_sprite_back.texture = tex
+	else:
+		print("[PetSprite] ⚠️ Sprite sheet no encontrado: %s" % MAIN_SHEET_PATH)
 		_generate_fallback_texture()
 
 
 ## --- Cambio de Estado con Crossfade ---
 
 func set_visual_state(new_state: String) -> void:
-	if new_state == _visual_state:
+	if new_state == _visual_state and _frame_tween:
 		return
 	
 	var old_state := _visual_state
@@ -101,34 +104,33 @@ func set_visual_state(new_state: String) -> void:
 	# Detener animaciones previas
 	_kill_tweens()
 	
-	# --- CROSSFADE: sprite actual → back, nuevo → front ---
-	if _sprites.has(new_state):
-		# Copiar el sprite actual al back
-		_sprite_back.texture = _sprite_front.texture
-		_sprite_back.scale = _sprite_front.scale
-		_sprite_back.modulate = _sprite_front.modulate
-		_sprite_back.modulate.a = 1.0
-		_sprite_back.position = _sprite_front.position
-		
-		# Poner el nuevo sprite en front (invisible al inicio)
-		_sprite_front.texture = _sprites[new_state] as Texture2D
-		_sprite_front.modulate.a = 0.0
-		
-		# Animar crossfade
-		_crossfade_tween = create_tween().set_parallel(true)
-		_crossfade_tween.set_trans(Tween.TRANS_SINE)
-		_crossfade_tween.set_ease(Tween.EASE_IN_OUT)
-		_crossfade_tween.tween_property(_sprite_front, "modulate:a", 1.0, CROSSFADE_DURATION)
-		_crossfade_tween.tween_property(_sprite_back, "modulate:a", 0.0, CROSSFADE_DURATION)
+	# Preparar crossfade
+	_sprite_back.frame = _sprite_front.frame
+	_sprite_back.scale = _sprite_front.scale
+	_sprite_back.modulate = _sprite_front.modulate
+	_sprite_back.modulate.a = 1.0
+	_sprite_back.position = _sprite_front.position
+
+	_sprite_front.modulate.a = 0.0
 	
-	# Reset transformaciones del front
+	# Animar crossfade
+	_crossfade_tween = create_tween().set_parallel(true)
+	_crossfade_tween.set_trans(Tween.TRANS_SINE)
+	_crossfade_tween.set_ease(Tween.EASE_IN_OUT)
+	_crossfade_tween.tween_property(_sprite_front, "modulate:a", 1.0, CROSSFADE_DURATION)
+	_crossfade_tween.tween_property(_sprite_back, "modulate:a", 0.0, CROSSFADE_DURATION)
+
+	# Reset transformaciones
 	_sprite_front.position = Vector2.ZERO
 	_sprite_front.rotation = 0.0
 	_sprite_front.scale = Vector2(SPRITE_SCALE, SPRITE_SCALE)
 	if not _facing_right:
 		_sprite_front.scale.x = -SPRITE_SCALE
 	
-	# --- ANTICIPATION antes de la acción ---
+	# Iniciar loop de frames para el nuevo estado
+	_start_frame_animation(new_state)
+
+	# --- ANTICIPATION / Juiciness ---
 	match new_state:
 		"eating", "playing":
 			_play_anticipation(new_state)
@@ -139,7 +141,7 @@ func set_visual_state(new_state: String) -> void:
 		"sad":
 			_play_droop()
 		"idle":
-			_start_idle_animation()
+			_start_idle_bobbing()
 
 
 ## --- ANTICIPATION (preparación antes de acción) ---
@@ -211,128 +213,60 @@ func _play_droop() -> void:
 	_anim_tween.tween_callback(_start_sad_loop)
 
 
-## --- LOOPS DE ANIMACIÓN ---
+## --- ANIMACIÓN POR FRAMES ---
 
-func _start_idle_animation() -> void:
+func _start_frame_animation(anim_name: String) -> void:
+	if not ANIM_DATA.has(anim_name):
+		return
+
+	var frames: Array = ANIM_DATA[anim_name]["frames"]
+	_frame_tween = create_tween().set_loops()
+
+	for frame_idx in frames:
+		_frame_tween.tween_callback(func(): _sprite_front.frame = frame_idx)
+		_frame_tween.tween_interval(FRAME_DURATION)
+
+
+func _start_idle_bobbing() -> void:
 	_anim_tween = create_tween().set_loops()
 	_anim_tween.set_trans(Tween.TRANS_SINE)
 	_anim_tween.set_ease(Tween.EASE_IN_OUT)
-	# Bobbing suave + respiración (scale Y oscila)
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		-IDLE_BOB_AMPLITUDE, IDLE_BOB_AMPLITUDE * 0.35)
-	_anim_tween.parallel().tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE * (1.0 + IDLE_BREATHE_SCALE), IDLE_BOB_AMPLITUDE * 0.35)
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		IDLE_BOB_AMPLITUDE, IDLE_BOB_AMPLITUDE * 0.35)
-	_anim_tween.parallel().tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE * (1.0 - IDLE_BREATHE_SCALE * 0.5), IDLE_BOB_AMPLITUDE * 0.35)
+	_anim_tween.tween_property(_sprite_front, "position:y", -IDLE_BOB_AMPLITUDE, 0.8)
+	_anim_tween.parallel().tween_property(_sprite_front, "scale:y", SPRITE_SCALE * (1.0 + IDLE_BREATHE_SCALE), 0.8)
+	_anim_tween.tween_property(_sprite_front, "position:y", IDLE_BOB_AMPLITUDE, 0.8)
+	_anim_tween.parallel().tween_property(_sprite_front, "scale:y", SPRITE_SCALE, 0.8)
 
 
 func _start_walk_loop() -> void:
 	_anim_tween = create_tween().set_loops()
 	_anim_tween.set_trans(Tween.TRANS_SINE)
-	_anim_tween.set_ease(Tween.EASE_IN_OUT)
-	# Paso 1: pie izquierdo → inclinación + squash al pisar
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		-6.0, 0.18)
-	_anim_tween.parallel().tween_property(_sprite_front, "rotation",
-		deg_to_rad(2.5), 0.18)
-	# Aterrizar: squash
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		2.0, 0.12)
-	_anim_tween.parallel().tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE * 0.94, 0.12)
-	# Recuperar
-	_anim_tween.tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE, 0.06)
-	# Paso 2: pie derecho → inclinación opuesta + squash
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		-6.0, 0.18)
-	_anim_tween.parallel().tween_property(_sprite_front, "rotation",
-		deg_to_rad(-2.5), 0.18)
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		2.0, 0.12)
-	_anim_tween.parallel().tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE * 0.94, 0.12)
-	_anim_tween.tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE, 0.06)
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		0.0, 0.06)
+	_anim_tween.tween_property(_sprite_front, "position:y", -2.0, 0.15)
+	_anim_tween.tween_property(_sprite_front, "position:y", 0.0, 0.15)
 
 
 func _start_eat_loop() -> void:
 	_anim_tween = create_tween().set_loops()
-	_anim_tween.set_trans(Tween.TRANS_BOUNCE)
-	_anim_tween.set_ease(Tween.EASE_OUT)
-	# Masticar: squash rápido + slight rotation
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE * 1.06, SPRITE_SCALE * 0.94), 0.1)
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE * 0.97, SPRITE_SCALE * 1.03), 0.1)
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		deg_to_rad(1.5), 0.05)
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE, SPRITE_SCALE), 0.08)
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		deg_to_rad(-1.0), 0.05)
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		0.0, 0.1)
+	_anim_tween.tween_property(_sprite_front, "scale", Vector2(SPRITE_SCALE * 1.05, SPRITE_SCALE * 0.95), 0.1)
+	_anim_tween.tween_property(_sprite_front, "scale", Vector2(SPRITE_SCALE, SPRITE_SCALE), 0.1)
 
 
 func _start_play_loop() -> void:
 	_anim_tween = create_tween().set_loops()
-	_anim_tween.set_trans(Tween.TRANS_BACK)
-	_anim_tween.set_ease(Tween.EASE_OUT)
-	# Saltar: stretch vertical → arriba → squash al aterrizar
-	# Preparar (squash)
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE * 1.1, SPRITE_SCALE * 0.88), 0.1)
-	# Saltar (stretch)
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE * 0.9, SPRITE_SCALE * 1.12), 0.08)
-	_anim_tween.parallel().tween_property(_sprite_front, "position:y",
-		-20.0, 0.2)
-	# Rotar en el aire
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		deg_to_rad(10.0), 0.1)
-	# Caer
-	_anim_tween.tween_property(_sprite_front, "position:y",
-		0.0, 0.15)
-	_anim_tween.parallel().tween_property(_sprite_front, "rotation",
-		0.0, 0.15)
-	# Aterrizar (squash fuerte = impacto)
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE * 1.15, SPRITE_SCALE * 0.85), 0.06)
-	# Rebote (follow-through)
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE * 0.97, SPRITE_SCALE * 1.04), 0.1)
-	# Normalizar
-	_anim_tween.tween_property(_sprite_front, "scale",
-		Vector2(SPRITE_SCALE, SPRITE_SCALE), 0.15)
-	# Pausa breve antes de repetir
-	_anim_tween.tween_interval(0.3)
+	_anim_tween.tween_property(_sprite_front, "position:y", -15.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_anim_tween.tween_property(_sprite_front, "position:y", 0.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_anim_tween.tween_interval(0.2)
 
 
 func _start_sleep_loop() -> void:
 	_anim_tween = create_tween().set_loops()
-	_anim_tween.set_trans(Tween.TRANS_SINE)
-	_anim_tween.set_ease(Tween.EASE_IN_OUT)
-	# Respiración profunda de dormir (solo scale Y, muy lento)
-	_anim_tween.tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE * 0.94, 1.8)
-	_anim_tween.tween_property(_sprite_front, "scale:y",
-		SPRITE_SCALE * 0.98, 1.8)
+	_anim_tween.tween_property(_sprite_front, "scale:y", SPRITE_SCALE * 0.96, 1.5)
+	_anim_tween.tween_property(_sprite_front, "scale:y", SPRITE_SCALE, 1.5)
 
 
 func _start_sad_loop() -> void:
 	_anim_tween = create_tween().set_loops()
-	_anim_tween.set_trans(Tween.TRANS_SINE)
-	_anim_tween.set_ease(Tween.EASE_IN_OUT)
-	# Mecerse ligeramente de lado a lado (self-comforting)
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		deg_to_rad(-4.0), 2.0)
-	_anim_tween.tween_property(_sprite_front, "rotation",
-		deg_to_rad(-1.0), 2.0)
+	_anim_tween.tween_property(_sprite_front, "rotation", deg_to_rad(-3.0), 1.0)
+	_anim_tween.tween_property(_sprite_front, "rotation", deg_to_rad(3.0), 1.0)
 
 
 ## --- Utilidades ---
@@ -341,6 +275,9 @@ func _kill_tweens() -> void:
 	if _anim_tween and _anim_tween.is_valid():
 		_anim_tween.kill()
 		_anim_tween = null
+	if _frame_tween and _frame_tween.is_valid():
+		_frame_tween.kill()
+		_frame_tween = null
 	# Matar crossfade sólo si ya terminó (alpha ~1.0 o ~0.0)
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		if _sprite_front and _sprite_front.modulate.a > 0.95:
@@ -371,17 +308,20 @@ func get_silhouette_polygon() -> PackedVector2Array:
 	var polygon := PackedVector2Array()
 	
 	if _sprite_front and _sprite_front.texture:
-		var tex_size := _sprite_front.texture.get_size() * absf(_sprite_front.scale.x)
-		var half := tex_size / 2.0
-		var inset := half.x * 0.12
-		polygon.append(Vector2(-half.x + inset, -half.y))
-		polygon.append(Vector2(half.x - inset, -half.y))
-		polygon.append(Vector2(half.x, -half.y + inset))
-		polygon.append(Vector2(half.x, half.y - inset))
-		polygon.append(Vector2(half.x - inset, half.y))
-		polygon.append(Vector2(-half.x + inset, half.y))
-		polygon.append(Vector2(-half.x, half.y - inset))
-		polygon.append(Vector2(-half.x, -half.y + inset))
+		# En una SpriteSheet, el tamaño real del frame es textura.size / hframes
+		var frame_size := Vector2(
+			_sprite_front.texture.get_width() / float(_sprite_front.hframes),
+			_sprite_front.texture.get_height()
+		) * absf(_sprite_front.scale.x)
+
+		var half := frame_size / 2.0
+		# Silueta simplificada del dinosaurio 24x24 pixel art
+		polygon.append(Vector2(-half.x * 0.7, -half.y))
+		polygon.append(Vector2(half.x * 0.7, -half.y))
+		polygon.append(Vector2(half.x, -half.y * 0.3))
+		polygon.append(Vector2(half.x, half.y))
+		polygon.append(Vector2(-half.x, half.y))
+		polygon.append(Vector2(-half.x, -half.y * 0.3))
 	else:
 		for i in range(16):
 			var angle := (float(i) / 16.0) * TAU
