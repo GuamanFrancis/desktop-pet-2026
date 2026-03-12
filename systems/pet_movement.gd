@@ -60,11 +60,16 @@ func _process(delta: float) -> void:
 	
 	bezier_pos += Vector2(noise_x, noise_y)
 	
-	# Aplicar posición a la ventana
+	# Aplicar posición a la ventana (asegurando que se mantenga dentro de los límites de pantalla)
 	if _window:
-		_window.position = Vector2i(bezier_pos)
+		var screen_rect := DisplayServer.screen_get_usable_rect()
+		var new_pos_x := clamp(bezier_pos.x, screen_rect.position.x, screen_rect.position.x + screen_rect.size.x - _window.size.x)
+		var new_pos_y := clamp(bezier_pos.y, screen_rect.position.y, screen_rect.position.y + screen_rect.size.y - _window.size.y)
+		var clamped_pos := Vector2(new_pos_x, new_pos_y)
+
+		_window.position = Vector2i(clamped_pos)
 		# Update facing direction based on movement
-		_update_facing(bezier_pos)
+		_update_facing(clamped_pos)
 	
 	# ¿Terminó?
 	if _move_progress >= 1.0:

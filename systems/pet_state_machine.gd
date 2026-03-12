@@ -10,13 +10,21 @@ enum State {
 	SLEEPING,  ## Durmiendo: ojos cerrados, recupera energía
 	EATING,    ## Comiendo: animación de masticar
 	PLAYING,   ## Jugando: rebote enérgico
-	SAD        ## Triste: movimiento lento, color gris
+	SAD,       ## Triste: movimiento lento, color gris
+	MISCHIEF_STEAL_CURSOR, ## Travesura: roba el cursor
+	MISCHIEF_SCARE,        ## Travesura: empujoncito al cursor
+	MISCHIEF_BLOCK,        ## Travesura: bloquea el centro o cursor
+	MISCHIEF_DROP,         ## Travesura: suelta un objeto en pantalla
+	MISCHIEF_TREMOR        ## Travesura: tiembla la ventana
 }
 
 ## --- Señales ---
 signal state_changed(old_state: State, new_state: State)
 signal walk_requested(target_position: Vector2)
 signal action_finished()
+signal spawn_dropped_object_requested()
+signal show_dialogue_requested(text: String)
+signal play_audio_requested(audio_name: String)
 
 ## --- Estado Actual ---
 var current_state: State = State.IDLE
@@ -28,6 +36,7 @@ var _idle_walk_timer: float = 0.0     # Countdown para caminar
 var _idle_walk_interval: float = 12.0 # Segundos entre caminatas (aleatorio 8-20)
 var _action_duration: float = 0.0     # Duración de acciones temporales
 var _action_timer: float = 0.0       # Timer de acción actual
+var _original_window_pos: Vector2i = Vector2i.ZERO # Para evitar drift en el tremor
 
 ## --- Configuración ---
 const SLEEP_THRESHOLD: float = 20.0       # Energía para dormirse
@@ -62,6 +71,16 @@ func _process(delta: float) -> void:
 			_process_playing(delta)
 		State.SAD:
 			_process_sad(delta)
+		State.MISCHIEF_STEAL_CURSOR:
+			_process_mischief_steal_cursor(delta)
+		State.MISCHIEF_SCARE:
+			_process_mischief_scare(delta)
+		State.MISCHIEF_BLOCK:
+			_process_mischief_block(delta)
+		State.MISCHIEF_DROP:
+			_process_mischief_drop(delta)
+		State.MISCHIEF_TREMOR:
+			_process_mischief_tremor(delta)
 
 
 ## --- Procesamiento por Estado ---
@@ -133,6 +152,69 @@ func _process_sad(_delta: float) -> void:
 		print("[StateMachine] 😊 ¡La mascota se siente mejor!")
 
 
+## --- Procesamiento de Travesuras ---
+
+func _process_mischief_steal_cursor(delta: float) -> void:
+	_action_timer += delta
+	var window := get_window()
+	var pet_center := window.position + window.size / 2
+	var mouse_pos := DisplayServer.mouse_get_position()
+
+	if _action_timer < 2.0:
+		# Fase 1: Moverse rápido hacia el cursor (lo hace Main a través de pet_movement, o aquí directo si está muy cerca)
+		# For this state, we assume the pet was told to move near the cursor upon entering the state
+		# Once close, it grabs the cursor.
+		if Vector2(pet_center).distance_to(Vector2(mouse_pos)) < 150.0:
+			DisplayServer.warp_mouse(pet_center)
+	elif _action_timer < 4.0:
+		# Fase 2: Forzar el cursor a una esquina mientras se mueve
+		# Start walking to the corner on exactly frame 2.0
+		if _action_timer - delta < 2.0:
+			var screen_rect := DisplayServer.screen_get_usable_rect()
+			var margin := 80
+			var corners := [
+				Vector2(screen_rect.position.x + margin, screen_rect.position.y + margin),
+				Vector2(screen_rect.position.x + screen_rect.size.x - margin, screen_rect.position.y + margin),
+				Vector2(screen_rect.position.x + margin, screen_rect.position.y + screen_rect.size.y - margin),
+				Vector2(screen_rect.position.x + screen_rect.size.x - margin, screen_rect.position.y + screen_rect.size.y - margin)
+			]
+			walk_requested.emit(corners.pick_random())
+		DisplayServer.warp_mouse(pet_center)
+	else:
+		transition_to(State.IDLE)
+
+func _process_mischief_scare(delta: float) -> void:
+	_action_timer += delta
+	if _action_timer >= 0.5:
+		# Fase única: empujón repentino
+		var current_mouse := DisplayServer.mouse_get_position()
+		var push := Vector2i(randi_range(-50, 50), randi_range(-50, 50))
+		if abs(push.x) < 20: push.x = 50 * sign(push.x) if push.x != 0 else 50
+		DisplayServer.warp_mouse(current_mouse + push)
+		transition_to(State.IDLE)
+
+func _process_mischief_block(delta: float) -> void:
+	_action_timer += delta
+	if _action_timer >= 5.0:
+		transition_to(State.IDLE)
+
+func _process_mischief_drop(delta: float) -> void:
+	_action_timer += delta
+	if _action_timer >= 1.0:
+		transition_to(State.IDLE)
+
+func _process_mischief_tremor(delta: float) -> void:
+	_action_timer += delta
+	var window := get_window()
+	# Temblor vigoroso
+	var offset := Vector2i(randi_range(-10, 10), randi_range(-10, 10))
+	window.position = _original_window_pos + offset
+
+	if _action_timer >= 2.0:
+		window.position = _original_window_pos
+		transition_to(State.IDLE)
+
+
 ## --- Transiciones ---
 
 ## Cambia al nuevo estado, emitiendo la señal correspondiente.
@@ -140,6 +222,10 @@ func transition_to(new_state: State) -> void:
 	if new_state == current_state:
 		return
 	
+	# Limpiar estado anterior
+	if current_state == State.MISCHIEF_TREMOR:
+		get_window().position = _original_window_pos
+
 	_previous_state = current_state
 	current_state = new_state
 	_state_timer = 0.0
@@ -157,6 +243,22 @@ func transition_to(new_state: State) -> void:
 			print("[StateMachine] 😴 La mascota se quedó dormida (energía baja)")
 		State.SAD:
 			print("[StateMachine] 😢 La mascota está triste (felicidad baja)")
+		State.MISCHIEF_STEAL_CURSOR:
+			var target := DisplayServer.mouse_get_position()
+			walk_requested.emit(target)
+		State.MISCHIEF_SCARE:
+			var target := DisplayServer.mouse_get_position()
+			walk_requested.emit(target)
+		State.MISCHIEF_BLOCK:
+			var screen_rect := DisplayServer.screen_get_usable_rect()
+			var target := Vector2(screen_rect.position.x + screen_rect.size.x / 2.0, screen_rect.position.y + screen_rect.size.y / 2.0)
+			walk_requested.emit(target)
+			show_dialogue_requested.emit("¡Descansa un rato!")
+		State.MISCHIEF_DROP:
+			spawn_dropped_object_requested.emit()
+		State.MISCHIEF_TREMOR:
+			play_audio_requested.emit("sad") # Usar audio existente
+			_original_window_pos = get_window().position
 	
 	state_changed.emit(_previous_state, new_state)
 	print("[StateMachine] %s → %s" % [State.keys()[_previous_state], State.keys()[new_state]])
@@ -190,11 +292,11 @@ func _start_walking() -> void:
 	transition_to(State.WALKING)
 	
 	# Generar posición aleatoria en la pantalla
-	var screen_size := DisplayServer.screen_get_size()
+	var screen_rect := DisplayServer.screen_get_usable_rect()
 	var margin := 80
 	var target := Vector2(
-		randf_range(margin, screen_size.x - margin),
-		randf_range(margin, screen_size.y - margin)
+		randf_range(screen_rect.position.x + margin, screen_rect.position.x + screen_rect.size.x - margin),
+		randf_range(screen_rect.position.y + margin, screen_rect.position.y + screen_rect.size.y - margin)
 	)
 	walk_requested.emit(target)
 
