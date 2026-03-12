@@ -25,7 +25,6 @@ var _previous_state: State = State.IDLE
 ## --- Timers Internos ---
 var _state_timer: float = 0.0        # Tiempo en estado actual
 var _idle_walk_timer: float = 0.0     # Countdown para caminar
-var _idle_walk_interval: float = 12.0 # Segundos entre caminatas (aleatorio 8-20)
 var _action_duration: float = 0.0     # Duración de acciones temporales
 var _action_timer: float = 0.0       # Timer de acción actual
 
