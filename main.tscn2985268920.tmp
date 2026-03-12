@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://btgv7n5577aea"]
+
+[ext_resource type="Script" uid="uid://cwdhv0f7e5ibr" path="res://main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://j6u3ew1gqrev" path="res://pet_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" uid="uid://chss3d4jgpyfs" path="res://pet_sprite.gd" id="3_sprite"]
+
+[node name="Main" type="Node2D" unique_id=928278370]
+script = ExtResource("1_main")
+
+[node name="PetCanvas" type="Node2D" parent="." unique_id=530268657]
+position = Vector2(90, 71)
+script = ExtResource("2_canvas")
+
+[node name="PetSprite" type="Sprite2D" parent="PetCanvas" unique_id=1994760277]
+script = ExtResource("3_sprite")

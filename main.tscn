@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://btgv7n5577aea"]
+
+[ext_resource type="Script" uid="uid://cwdhv0f7e5ibr" path="res://main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://j6u3ew1gqrev" path="res://pet_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" uid="uid://chss3d4jgpyfs" path="res://pet_sprite.gd" id="3_sprite"]
+[ext_resource type="Script" uid="uid://5oqs1drumkjh" path="res://ui/stats_panel.gd" id="4_stats"]
+[ext_resource type="Script" uid="uid://7tvpunney3s7" path="res://ui/context_menu.gd" id="5_menu"]
+[ext_resource type="Script" path="res://ui/dialogue_bubble.gd" id="6_dialogue"]
+[ext_resource type="Script" path="res://ui/notification_toast.gd" id="7_toast"]
+[ext_resource type="Script" path="res://ui/inventory_panel.gd" id="8_inventory"]
+
+[node name="Main" type="Node2D" unique_id=928278370]
+script = ExtResource("1_main")
+
+[node name="PetCanvas" type="Node2D" parent="." unique_id=530268657]
+script = ExtResource("2_canvas")
+
+[node name="PetSprite" type="Node2D" parent="PetCanvas" unique_id=1994760277]
+script = ExtResource("3_sprite")
+
+[node name="StatsPanel" type="Control" parent="PetCanvas" unique_id=2064102495]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("4_stats")
+
+[node name="ContextMenu" type="Control" parent="PetCanvas" unique_id=989467198]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("5_menu")
+
+[node name="DialogueBubble" type="Control" parent="PetCanvas"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("6_dialogue")
+
+[node name="NotificationToast" type="Control" parent="PetCanvas"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("7_toast")
+
+[node name="InventoryPanel" type="Control" parent="PetCanvas"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("8_inventory")
