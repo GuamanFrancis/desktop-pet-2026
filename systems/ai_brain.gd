@@ -130,7 +130,19 @@ func process_cloud_response(response: Dictionary) -> void:
 	if response.has("text"):
 		_say(response["text"] as String)
 	if response.has("action"):
-		action_requested.emit(response["action"] as String, response.get("params", {}) as Dictionary)
+		var action_name: String = response["action"] as String
+		var params: Dictionary = response.get("params", {}) as Dictionary
+
+		# Intercept walk requests to clamp to screen bounds
+		if action_name == "walk_to" and params.has("target"):
+			var target: Vector2 = params["target"]
+			var screen_rect := DisplayServer.screen_get_usable_rect()
+			var margin := 80
+			target.x = clamp(target.x, screen_rect.position.x + margin, screen_rect.position.x + screen_rect.size.x - margin)
+			target.y = clamp(target.y, screen_rect.position.y + margin, screen_rect.position.y + screen_rect.size.y - margin)
+			params["target"] = target
+
+		action_requested.emit(action_name, params)
 
 
 ## --- Lógica de Pensamiento ---

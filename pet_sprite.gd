@@ -303,30 +303,85 @@ func update_mood_color(mood: float) -> void:
 
 
 ## --- Polígono de Silueta ---
+var _cached_polygons: Dictionary = {}
 
 func get_silhouette_polygon() -> PackedVector2Array:
 	var polygon := PackedVector2Array()
 	
 	if _sprite_front and _sprite_front.texture:
-		# En una SpriteSheet, el tamaño real del frame es textura.size / hframes
-		var frame_size := Vector2(
-			_sprite_front.texture.get_width() / float(_sprite_front.hframes),
-			_sprite_front.texture.get_height()
-		) * absf(_sprite_front.scale.x)
+		var tex := _sprite_front.texture
+		var frame := _sprite_front.frame
 
-		var half := frame_size / 2.0
-		# Silueta simplificada del dinosaurio 24x24 pixel art
-		polygon.append(Vector2(-half.x * 0.7, -half.y))
-		polygon.append(Vector2(half.x * 0.7, -half.y))
-		polygon.append(Vector2(half.x, -half.y * 0.3))
-		polygon.append(Vector2(half.x, half.y))
-		polygon.append(Vector2(-half.x, half.y))
-		polygon.append(Vector2(-half.x, -half.y * 0.3))
-	else:
-		for i in range(16):
-			var angle := (float(i) / 16.0) * TAU
-			polygon.append(Vector2(cos(angle) * 60, sin(angle) * 60))
-	
+		if _cached_polygons.has(frame):
+			var base_poly: PackedVector2Array = _cached_polygons[frame]
+			var scale_x := absf(_sprite_front.scale.x)
+			var scale_y := absf(_sprite_front.scale.y)
+			var half_width := (tex.get_width() / _sprite_front.hframes) / 2.0
+			var half_height := (tex.get_height() / _sprite_front.vframes) / 2.0
+
+			for pt in base_poly:
+				# Centrar el punto (BitMap coordinates to centered coordinates)
+				var centered_pt := Vector2(pt.x - half_width, pt.y - half_height)
+				var final_pt := Vector2(centered_pt.x * scale_x, centered_pt.y * scale_y)
+				# Aplicar la escala de la mascota (si el sprite está invertido horizontalmente)
+				if not _facing_right:
+					final_pt.x = -final_pt.x
+				polygon.append(final_pt)
+			return polygon
+
+		var hframes := _sprite_front.hframes
+		var vframes := _sprite_front.vframes
+
+		# Calcular el tamaño y la posición del frame en la textura
+		var frame_width := tex.get_width() / hframes
+		var frame_height := tex.get_height() / vframes
+		var frame_x := (frame % hframes) * frame_width
+		var frame_y := (frame / hframes) * frame_height
+		var frame_rect := Rect2i(frame_x, frame_y, frame_width, frame_height)
+
+		# Obtener la imagen de la textura
+		var img := tex.get_image()
+		if not img:
+			return _get_fallback_polygon()
+
+		# Extraer el sub-rectángulo del frame actual
+		var frame_img := img.get_region(frame_rect)
+
+		# Crear un BitMap a partir de la imagen
+		var bitmap := BitMap.new()
+		bitmap.create_from_image_alpha(frame_img)
+
+		# Generar los polígonos desde el BitMap
+		var polygons := bitmap.opaque_to_polygons(Rect2(0, 0, frame_width, frame_height), 1.0)
+
+		if polygons.size() > 0:
+			# Escalar y centrar el primer polígono (asumimos que es el contorno principal)
+			var base_poly: PackedVector2Array = polygons[0]
+			_cached_polygons[frame] = base_poly
+
+			var scale_x := absf(_sprite_front.scale.x)
+			var scale_y := absf(_sprite_front.scale.y)
+			var half_width := frame_width / 2.0
+			var half_height := frame_height / 2.0
+
+			for pt in base_poly:
+				# Centrar el punto (BitMap coordinates to centered coordinates)
+				var centered_pt := Vector2(pt.x - half_width, pt.y - half_height)
+				var final_pt := Vector2(centered_pt.x * scale_x, centered_pt.y * scale_y)
+				# Aplicar la escala de la mascota (si el sprite está invertido horizontalmente)
+				if not _facing_right:
+					final_pt.x = -final_pt.x
+				polygon.append(final_pt)
+			return polygon
+
+	return _get_fallback_polygon()
+
+
+func _get_fallback_polygon() -> PackedVector2Array:
+	var polygon := PackedVector2Array()
+	for i in range(16):
+		var angle := (float(i) / 16.0) * TAU
+		polygon.append(Vector2(cos(angle) * 60, sin(angle) * 60))
 	return polygon
 
 
