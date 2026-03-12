@@ -41,6 +41,13 @@ var _menu_items: Array = [
 	{"type": ItemType.ACTION, "emoji": "📦", "label": "Inventario", "id": "inventory"},
 	{"type": ItemType.ACTION, "emoji": "📊", "label": "Estadísticas", "id": "stats"},
 	{"type": ItemType.SEPARATOR},
+	{"type": ItemType.HEADER, "text": "Debug Travesuras"},
+	{"type": ItemType.ACTION, "emoji": "🖱️", "label": "Robar Cursor", "id": "debug_mischief_steal"},
+	{"type": ItemType.ACTION, "emoji": "⚡", "label": "Empujón Cursor", "id": "debug_mischief_scare"},
+	{"type": ItemType.ACTION, "emoji": "🛑", "label": "Bloquear Visión", "id": "debug_mischief_block"},
+	{"type": ItemType.ACTION, "emoji": "💩", "label": "Lanzar Objeto", "id": "debug_mischief_drop"},
+	{"type": ItemType.ACTION, "emoji": "🫨", "label": "Temblor", "id": "debug_mischief_tremor"},
+	{"type": ItemType.SEPARATOR},
 	{"type": ItemType.ACTION, "emoji": "❌", "label": "Cerrar", "id": "quit", "danger": true},
 ]
 

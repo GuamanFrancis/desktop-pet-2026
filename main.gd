@@ -93,6 +93,12 @@ func _setup_systems() -> void:
 	add_child(state_machine)
 	state_machine.state_changed.connect(_on_state_changed)
 	state_machine.walk_requested.connect(_on_walk_requested)
+	state_machine.spawn_dropped_object_requested.connect(_on_spawn_dropped_object)
+	state_machine.show_dialogue_requested.connect(_on_dialogue_requested)
+	state_machine.play_audio_requested.connect(func(audio_name: String):
+		if AudioManager and AudioManager.has_method("play_" + audio_name):
+			AudioManager.call("play_" + audio_name)
+	)
 	
 	# PetMovement
 	pet_movement = preload("res://systems/pet_movement.gd").new()
@@ -217,16 +223,25 @@ func _on_movement_completed() -> void:
 		state_machine.on_walk_completed()
 
 
+func _on_spawn_dropped_object() -> void:
+	var DroppedObject = load("res://systems/dropped_object.gd")
+	if DroppedObject:
+		var instance = DroppedObject.new()
+		# Add as a child of the root node so it's a completely independent window
+		get_tree().get_root().add_child(instance)
+
+
+func _on_dialogue_requested(text: String) -> void:
+	if is_instance_valid(dialogue_bubble) and dialogue_bubble.has_method("show_message"):
+		dialogue_bubble.show_message(text)
+
+
 func _on_facing_changed(facing_right: bool) -> void:
 	if is_instance_valid(pet_sprite) and pet_sprite.has_method("set_facing_direction"):
 		pet_sprite.call("set_facing_direction", facing_right)
 
 
 ## --- AI Brain ---
-
-func _on_dialogue_requested(text: String) -> void:
-	if is_instance_valid(dialogue_bubble) and dialogue_bubble.has_method("show_message"):
-		dialogue_bubble.show_message(text)
 
 
 ## --- Acciones del Usuario ---
@@ -243,6 +258,21 @@ func _on_context_menu_action(action_name: String) -> void:
 		"inventory":
 			if inventory_panel:
 				inventory_panel.show_panel(get_viewport_rect().size / 2.0)
+		"debug_mischief_steal":
+			if state_machine:
+				state_machine.transition_to(PetStateMachine.State.MISCHIEF_STEAL_CURSOR)
+		"debug_mischief_scare":
+			if state_machine:
+				state_machine.transition_to(PetStateMachine.State.MISCHIEF_SCARE)
+		"debug_mischief_block":
+			if state_machine:
+				state_machine.transition_to(PetStateMachine.State.MISCHIEF_BLOCK)
+		"debug_mischief_drop":
+			if state_machine:
+				state_machine.transition_to(PetStateMachine.State.MISCHIEF_DROP)
+		"debug_mischief_tremor":
+			if state_machine:
+				state_machine.transition_to(PetStateMachine.State.MISCHIEF_TREMOR)
 
 ## --- Inventario ---
 
