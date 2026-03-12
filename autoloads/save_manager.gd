@@ -8,7 +8,10 @@ extends Node
 const SAVE_PATH_ENCRYPTED: String = "user://save_data.sav"
 const SAVE_PATH_LEGACY: String = "user://save_data.tres"
 const AUTO_SAVE_INTERVAL: float = 60.0
-const ENCRYPTION_KEY: String = "dsktp3t_s4v3_k3y_2026_x7q"  # Ofuscación nivel 1
+
+## --- Configuración ---
+var _encryption_key: String = ""
+var _legacy_encryption_key: String = ""
 
 ## --- Datos del Juego (accesibles globalmente via SaveManager) ---
 var pet_stats: PetStats = null
@@ -19,6 +22,7 @@ var _auto_save_timer: Timer = null
 
 
 func _ready() -> void:
+	_load_encryption_key()
 	load_game()
 	_setup_auto_save()
 	print("[SaveManager] ✅ Sistema de persistencia encriptada inicializado.")
@@ -50,7 +54,7 @@ func save_game() -> void:
 			ProjectSettings.globalize_path(backup_path)
 		)
 	
-	var file := FileAccess.open_encrypted_with_pass(SAVE_PATH_ENCRYPTED, FileAccess.WRITE, ENCRYPTION_KEY)
+	var file := FileAccess.open_encrypted_with_pass(SAVE_PATH_ENCRYPTED, FileAccess.WRITE, _encryption_key)
 	if file:
 		file.store_string(json_string)
 		file.close()
@@ -61,10 +65,17 @@ func save_game() -> void:
 ## --- Carga ---
 
 func load_game() -> void:
-	# 1. Intentar cargar archivo encriptado
+	# 1. Intentar cargar archivo encriptado con clave actual
 	if FileAccess.file_exists(SAVE_PATH_ENCRYPTED):
-		if _load_encrypted():
+		if _load_encrypted(_encryption_key):
 			return
+
+		# 1b. Intentar con clave legacy si existe
+		if not _legacy_encryption_key.is_empty():
+			if _load_encrypted(_legacy_encryption_key):
+				print("[SaveManager] 🔄 Migrando datos a nueva clave de encriptación...")
+				save_game() # Re-encriptar con la clave nueva
+				return
 	
 	# 2. Intentar recuperar desde backup
 	var backup_path := SAVE_PATH_ENCRYPTED + ".bak"
@@ -75,9 +86,15 @@ func load_game() -> void:
 			ProjectSettings.globalize_path(backup_path),
 			ProjectSettings.globalize_path(SAVE_PATH_ENCRYPTED)
 		)
-		if _load_encrypted():
+		if _load_encrypted(_encryption_key):
 			print("[SaveManager] ✅ Recuperado exitosamente desde backup.")
 			return
+
+		if not _legacy_encryption_key.is_empty():
+			if _load_encrypted(_legacy_encryption_key):
+				print("[SaveManager] ✅ Recuperado desde backup usando clave legacy. Migrando...")
+				save_game()
+				return
 	
 	# 3. Intentar migrar archivo .tres antiguo
 	if ResourceLoader.exists(SAVE_PATH_LEGACY):
@@ -88,8 +105,11 @@ func load_game() -> void:
 	_create_new_game()
 
 
-func _load_encrypted() -> bool:
-	var file := FileAccess.open_encrypted_with_pass(SAVE_PATH_ENCRYPTED, FileAccess.READ, ENCRYPTION_KEY)
+func _load_encrypted(key: String) -> bool:
+	if key.is_empty():
+		return false
+
+	var file := FileAccess.open_encrypted_with_pass(SAVE_PATH_ENCRYPTED, FileAccess.READ, key)
 	if not file:
 		push_warning("[SaveManager] ⚠️ No se pudo abrir archivo encriptado.")
 		return false
@@ -244,3 +264,24 @@ func _setup_auto_save() -> void:
 
 func _on_auto_save() -> void:
 	save_game()
+
+
+func _load_encryption_key() -> void:
+	# 1. Intentar desde variables de entorno (Recomendado para producción)
+	_encryption_key = OS.get_environment("SAVE_ENCRYPTION_KEY")
+	_legacy_encryption_key = OS.get_environment("LEGACY_SAVE_ENCRYPTION_KEY")
+
+	# 2. Intentar desde ProjectSettings (como fallback)
+	if _encryption_key.is_empty():
+		if ProjectSettings.has_setting("application/config/save_key"):
+			_encryption_key = ProjectSettings.get_setting("application/config/save_key")
+
+	if _legacy_encryption_key.is_empty():
+		if ProjectSettings.has_setting("application/config/legacy_save_key"):
+			_legacy_encryption_key = ProjectSettings.get_setting("application/config/legacy_save_key")
+
+	# 3. Fallback dinámico si no hay ninguna clave
+	if _encryption_key.is_empty():
+		# Generamos una clave basada en el ID único del dispositivo como último recurso
+		_encryption_key = OS.get_unique_id()
+		push_warning("[SaveManager] ⚠️ Usando clave generada dinámicamente. Configure SAVE_ENCRYPTION_KEY para mayor seguridad.")
