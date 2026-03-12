@@ -128,9 +128,12 @@ func notify_level_up(new_level: int) -> void:
 ## Cuando se conecte Inworld/Convai, este método recibirá la respuesta.
 func process_cloud_response(response: Dictionary) -> void:
 	if response.has("text"):
-		_say(response["text"] as String)
+		_say(str(response["text"]))
 	if response.has("action"):
-		action_requested.emit(response["action"] as String, response.get("params", {}) as Dictionary)
+		var params = response.get("params", {})
+		if typeof(params) != TYPE_DICTIONARY:
+			params = {}
+		action_requested.emit(str(response["action"]), params)
 
 
 ## --- Lógica de Pensamiento ---
@@ -201,7 +204,7 @@ func _pick_unique(pool: Array, category: String) -> String:
 	if pool.size() <= 1:
 		return pool[0] if pool.size() > 0 else ""
 	
-	var last_said: String = _messages_said.get(category, "") as String
+	var last_said: String = str(_messages_said.get(category, ""))
 	var filtered: Array = pool.filter(func(m: String) -> bool: return m != last_said)
 	var chosen: String = filtered.pick_random() if filtered.size() > 0 else pool.pick_random()
 	_messages_said[category] = chosen

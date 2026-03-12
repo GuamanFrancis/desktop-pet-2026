@@ -119,7 +119,7 @@ func _draw() -> void:
 			if slot_idx < items.size():
 				var item: ItemData = items[slot_idx] as ItemData
 				# Emoji del tipo
-				var emoji: String = ITEM_EMOJIS.get(item.item_type, "📦") as String
+				var emoji: String = str(ITEM_EMOJIS.get(item.item_type, "📦"))
 				draw_string(_font, Vector2(sx + SLOT_SIZE / 2.0 - 8, sy + SLOT_SIZE / 2.0 + 4),
 					emoji, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_COLOR)
 				# Cantidad

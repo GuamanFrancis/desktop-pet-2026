@@ -115,11 +115,11 @@ func _draw() -> void:
 	var viewport_w := get_viewport_rect().size.x
 	
 	for toast in _active_toasts:
-		var alpha: float = toast["alpha"] as float
-		var y_pos: float = toast["offset_y"] as float
-		var icon: String = toast["icon"] as String
-		var text: String = toast["text"] as String
-		var accent: Color = toast["color"] as Color
+		var alpha: float = toast.get("alpha", 1.0)
+		var y_pos: float = toast.get("offset_y", 0.0)
+		var icon: String = str(toast.get("icon", ""))
+		var text: String = str(toast.get("text", ""))
+		var accent: Color = toast.get("color", BORDER_COLOR)
 		
 		var x_pos := (viewport_w - TOAST_WIDTH) / 2.0
 		
