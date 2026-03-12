@@ -10,6 +10,9 @@ var _drag_offset: Vector2 = Vector2.ZERO
 ## Estado del hover (mouse sobre la mascota)
 var _hovering: bool = false
 
+## Estado previo del polígono de passthrough (para optimización)
+var _last_passthrough_state: Dictionary = {}
+
 ## Referencia al PetSprite (hijo)
 @onready var pet_sprite: Node2D = $PetSprite
 ## Referencia al StatsPanel (hijo)
@@ -28,7 +31,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	_update_passthrough_polygon()
+	if _is_passthrough_dirty():
+		_update_passthrough_polygon()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -40,6 +44,62 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## --- Mouse Passthrough ---
 
+## OPTIMIZACIÓN: Solo actualizamos el polígono de passthrough cuando hay cambios reales
+## en la geometría del sprite o de la UI. Esto evita llamadas costosas a DisplayServer
+## y Geometry2D cada frame (60+ veces por segundo).
+
+## Retorna true si el estado que afecta al polígono de passthrough ha cambiado.
+func _is_passthrough_dirty() -> bool:
+	if not is_instance_valid(pet_sprite):
+		return false
+
+	# 1. Recolectar estado actual (usamos el nodo de sprite real para capturar animaciones)
+	var sprite_node: Sprite2D = pet_sprite.get_node_or_null("SpriteFront")
+	if not is_instance_valid(sprite_node):
+		return false
+
+	var current_state := {
+		"pet_transform": sprite_node.global_transform,
+		"pet_frame": sprite_node.frame,
+		"ui": []
+	}
+
+	for ui in [stats_panel, context_menu, dialogue_bubble, inventory_panel]:
+		if is_instance_valid(ui):
+			current_state["ui"].append({
+				"visible": ui.visible,
+				"modulate_a": ui.modulate.a,
+				"global_pos": ui.global_position,
+				"size": ui.size
+			})
+		else:
+			current_state["ui"].append(null)
+
+	# 2. Comparar con el anterior
+	if _last_passthrough_state.is_empty():
+		_last_passthrough_state = current_state
+		return true # Forzar primera actualización
+
+	var dirty := false
+	if current_state["pet_transform"] != _last_passthrough_state["pet_transform"]:
+		dirty = true
+	elif current_state["pet_frame"] != _last_passthrough_state["pet_frame"]:
+		dirty = true
+	elif current_state["ui"].size() != _last_passthrough_state["ui"].size():
+		dirty = true
+	else:
+		for i in range(current_state["ui"].size()):
+			if current_state["ui"][i] != _last_passthrough_state["ui"][i]:
+				dirty = true
+				break
+
+	# 3. Si cambió, actualizar cache
+	if dirty:
+		_last_passthrough_state = current_state
+
+	return dirty
+
+
 func _update_passthrough_polygon() -> void:
 	if not is_instance_valid(pet_sprite):
 		return
@@ -47,8 +107,14 @@ func _update_passthrough_polygon() -> void:
 	var polygon: PackedVector2Array = pet_sprite.call("get_silhouette_polygon")
 	if polygon.size() > 0:
 		var window_polygon := PackedVector2Array()
+
+		# IMPORTANTE: Usamos la transformación del sprite real (hijo)
+		# para que el polígono siga las animaciones de bobbing/escalado.
+		var sprite_node: Sprite2D = pet_sprite.get_node_or_null("SpriteFront")
+		var target_node: Node2D = sprite_node if sprite_node else pet_sprite
+
 		for point in polygon:
-			var global_point := pet_sprite.to_global(point)
+			var global_point := target_node.to_global(point)
 			window_polygon.append(global_point)
 		
 		var combined := window_polygon
