@@ -33,9 +33,8 @@ const FALLBACK_SIZE: float = 100.0
 
 
 func _ready() -> void:
-	# Live2D desactivado — GDCubism DLL causa crash en este entorno.
-	_is_live2d = false
-	_setup_fallback()
+	# Live2D activado.
+	_try_enable_live2d()
 
 	# Posicionar: offset a la derecha del Dino
 	var viewport_size := get_viewport_rect().size
