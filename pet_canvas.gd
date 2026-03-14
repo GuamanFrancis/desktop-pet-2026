@@ -13,10 +13,10 @@ var _hovering: bool = false
 ## Estado previo del polígono de passthrough (para optimización)
 var _last_passthrough_state: Dictionary = {}
 
-## Referencia al PetSprite (hijo)
+## Referencias a Avatares
 @onready var pet_sprite: Node2D = $PetSprite
-## Referencia al AquaSprite (hijo)
-@onready var aqua_sprite: Node2D = $AquaSprite
+@onready var aqua_sprite: Node2D = $AquaSprite if has_node("AquaSprite") else null
+
 ## Referencia al StatsPanel (hijo)
 @onready var stats_panel: Control = $StatsPanel
 ## Referencia al ContextMenu (hijo)
@@ -98,8 +98,8 @@ func _update_passthrough_polygon() -> void:
 	if is_instance_valid(pet_sprite) and pet_sprite.visible:
 		var polygon: PackedVector2Array = pet_sprite.call("get_silhouette_polygon")
 		if polygon.size() > 0:
-			var sprite_node: Sprite2D = pet_sprite.get_sprite_node() if pet_sprite.has_method("get_sprite_node") else null
-			var target_node: Node2D = sprite_node if sprite_node else pet_sprite
+			var sprite_node: Node = pet_sprite.call("get_sprite_node") if pet_sprite.has_method("get_sprite_node") else null
+			var target_node: Node2D = sprite_node as Node2D if sprite_node is Node2D else pet_sprite
 			for point in polygon:
 				combined.append(target_node.to_global(point))
 
@@ -107,9 +107,14 @@ func _update_passthrough_polygon() -> void:
 	if is_instance_valid(aqua_sprite) and aqua_sprite.visible and aqua_sprite.has_method("get_silhouette_polygon"):
 		var aqua_poly: PackedVector2Array = aqua_sprite.call("get_silhouette_polygon")
 		if aqua_poly.size() > 0:
+			var target_node: Node2D = aqua_sprite
+			if aqua_sprite.has_node("Sprite2D"):
+				target_node = aqua_sprite.get_node("Sprite2D")
+
 			var aqua_window_poly := PackedVector2Array()
 			for point in aqua_poly:
-				aqua_window_poly.append(aqua_sprite.to_global(point))
+				aqua_window_poly.append(target_node.to_global(point))
+
 			if combined.size() > 0:
 				var merged := Geometry2D.merge_polygons(combined, aqua_window_poly)
 				if merged.size() > 0:

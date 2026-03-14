@@ -5,10 +5,9 @@
 [ext_resource type="Script" uid="uid://chss3d4jgpyfs" path="res://pet_sprite.gd" id="3_sprite"]
 [ext_resource type="Script" uid="uid://5oqs1drumkjh" path="res://ui/stats_panel.gd" id="4_stats"]
 [ext_resource type="Script" uid="uid://7tvpunney3s7" path="res://ui/context_menu.gd" id="5_menu"]
-[ext_resource type="Script" uid="uid://biokgplbu6wq8" path="res://ui/dialogue_bubble.gd" id="6_dialogue"]
-[ext_resource type="Script" uid="uid://dybhgbbmgwkyx" path="res://ui/notification_toast.gd" id="7_toast"]
-[ext_resource type="Script" uid="uid://2kx6o0dcmt2i" path="res://ui/inventory_panel.gd" id="8_inventory"]
-[ext_resource type="Script" uid="uid://b35u8fis17gca" path="res://aqua_sprite.gd" id="9_aqua"]
+[ext_resource type="Script" path="res://ui/dialogue_bubble.gd" id="6_dialogue"]
+[ext_resource type="Script" path="res://ui/notification_toast.gd" id="7_toast"]
+[ext_resource type="Script" path="res://ui/inventory_panel.gd" id="8_inventory"]
 
 [node name="Main" type="Node2D" unique_id=928278370]
 script = ExtResource("1_main")
@@ -18,9 +17,6 @@ script = ExtResource("2_canvas")
 
 [node name="PetSprite" type="Node2D" parent="PetCanvas" unique_id=1994760277]
 script = ExtResource("3_sprite")
-
-[node name="AquaSprite" type="Node2D" parent="PetCanvas" unique_id=756480467]
-script = ExtResource("9_aqua")
 
 [node name="StatsPanel" type="Control" parent="PetCanvas" unique_id=2064102495]
 visible = false
@@ -34,24 +30,22 @@ layout_mode = 3
 anchors_preset = 0
 script = ExtResource("5_menu")
 
-[node name="DialogueBubble" type="Control" parent="PetCanvas" unique_id=2129429632]
+[node name="DialogueBubble" type="Control" parent="PetCanvas"]
 visible = false
 layout_mode = 3
 anchors_preset = 0
 mouse_filter = 2
 script = ExtResource("6_dialogue")
 
-[node name="NotificationToast" type="Control" parent="PetCanvas" unique_id=1979873094]
+[node name="NotificationToast" type="Control" parent="PetCanvas"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("7_toast")
 
-[node name="InventoryPanel" type="Control" parent="PetCanvas" unique_id=1762891486]
+[node name="InventoryPanel" type="Control" parent="PetCanvas"]
 visible = false
 layout_mode = 3
 anchors_preset = 0

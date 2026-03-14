@@ -53,6 +53,10 @@ func _ready() -> void:
 	print("[Inventario] ✅ Panel de inventario inicializado.")
 
 
+func _process(_delta: float) -> void:
+	pass  # No per-frame redraw needed; we call queue_redraw() on events
+
+
 func _gui_input(event: InputEvent) -> void:
 	if not _is_showing:
 		return

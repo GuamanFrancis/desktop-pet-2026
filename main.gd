@@ -123,7 +123,7 @@ func _setup_systems() -> void:
 		aqua_particles = preload("res://systems/particle_effects.gd").new()
 		aqua_particles.name = "AquaParticles"
 		aqua_sprite.add_child(aqua_particles)
-	
+
 	# AI Brain
 	ai_brain = preload("res://systems/ai_brain.gd").new()
 	ai_brain.name = "AIBrain"

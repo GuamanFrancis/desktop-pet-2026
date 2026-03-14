@@ -7,7 +7,6 @@ extends Resource
 ## --- Señales ---
 signal level_up(new_level: int)
 signal stat_changed(stat_name: String, new_value: float)
-@warning_ignore("unused_signal")
 signal pet_died()
 
 ## --- Propiedades Exportadas (visibles en el Inspector de Godot) ---
