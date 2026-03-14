@@ -7,9 +7,6 @@ extends Node2D
 ##   - Breathing animation (idle)
 ## Usa dos Sprite2D superpuestos para transiciones.
 
-## --- Sprites por Estado ---
-var _sprites: Dictionary = {}
-
 ## --- Configuración ---
 const SPRITE_SCALE: float = 6.0           # Escala aumentada para pixel art (24x24 -> 144x144)
 const CROSSFADE_DURATION: float = 0.2     # Crossfade más rápido para pixel art
@@ -98,6 +95,7 @@ func set_visual_state(new_state: String) -> void:
 	if new_state == _visual_state and _frame_tween:
 		return
 	
+	@warning_ignore("unused_variable")
 	var old_state := _visual_state
 	_visual_state = new_state
 	
@@ -316,8 +314,8 @@ func get_silhouette_polygon() -> PackedVector2Array:
 			var base_poly: PackedVector2Array = _cached_polygons[frame]
 			var scale_x := absf(_sprite_front.scale.x)
 			var scale_y := absf(_sprite_front.scale.y)
-			var half_width := (tex.get_width() / _sprite_front.hframes) / 2.0
-			var half_height := (tex.get_height() / _sprite_front.vframes) / 2.0
+			var half_width := float(tex.get_width() / _sprite_front.hframes) / 2.0
+			var half_height := float(tex.get_height() / _sprite_front.vframes) / 2.0
 
 			for pt in base_poly:
 				# Centrar el punto (BitMap coordinates to centered coordinates)
@@ -333,10 +331,10 @@ func get_silhouette_polygon() -> PackedVector2Array:
 		var vframes := _sprite_front.vframes
 
 		# Calcular el tamaño y la posición del frame en la textura
-		var frame_width := tex.get_width() / hframes
-		var frame_height := tex.get_height() / vframes
-		var frame_x := (frame % hframes) * frame_width
-		var frame_y := (frame / hframes) * frame_height
+		var frame_width: int = tex.get_width() / hframes
+		var frame_height: int = tex.get_height() / vframes
+		var frame_x: int = (frame % hframes) * frame_width
+		var frame_y: int = (frame / hframes) * frame_height
 		var frame_rect := Rect2i(frame_x, frame_y, frame_width, frame_height)
 
 		# Obtener la imagen de la textura
@@ -385,6 +383,12 @@ func _get_fallback_polygon() -> PackedVector2Array:
 	return polygon
 
 
+## --- Nodo Sprite Principal (para PetCanvas passthrough) ---
+
+func get_sprite_node() -> Sprite2D:
+	return _sprite_front
+
+
 ## --- Fallback ---
 
 func _generate_fallback_texture() -> void:
@@ -400,4 +404,6 @@ func _generate_fallback_texture() -> void:
 				img.set_pixel(x, y, Color(lerpf(0.3, 0.15, t), lerpf(0.8, 0.5, t), lerpf(0.5, 0.3, t), 1.0))
 			else:
 				img.set_pixel(x, y, Color(0, 0, 0, 0))
-	_sprites["idle"] = ImageTexture.create_from_image(img)
+	var _tex := ImageTexture.create_from_image(img)
+	_sprite_front.texture = _tex
+	_sprite_back.texture = _tex

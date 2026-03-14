@@ -63,8 +63,8 @@ func _process(delta: float) -> void:
 	# Aplicar posición a la ventana (asegurando que se mantenga dentro de los límites de pantalla)
 	if _window:
 		var screen_rect := DisplayServer.screen_get_usable_rect()
-		var new_pos_x := clamp(bezier_pos.x, screen_rect.position.x, screen_rect.position.x + screen_rect.size.x - _window.size.x)
-		var new_pos_y := clamp(bezier_pos.y, screen_rect.position.y, screen_rect.position.y + screen_rect.size.y - _window.size.y)
+		var new_pos_x: float = clamp(bezier_pos.x, screen_rect.position.x, screen_rect.position.x + screen_rect.size.x - _window.size.x)
+		var new_pos_y: float = clamp(bezier_pos.y, screen_rect.position.y, screen_rect.position.y + screen_rect.size.y - _window.size.y)
 		var clamped_pos := Vector2(new_pos_x, new_pos_y)
 
 		_window.position = Vector2i(clamped_pos)

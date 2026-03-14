@@ -1,2 +1,25 @@
-.godot/ 
-*.import 
+.godot/
+*.import
+*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temp / logs
+*.log
+*.bak
+
+# Local archives and exports
+*.zip
+
+# Excluir carpetas de referencia externa
+konosuba/
+
+# Godot export/build artifacts (si se generan)
+*.pck
+*.exe
+*.apk
+*.x86_64

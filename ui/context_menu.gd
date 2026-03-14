@@ -7,9 +7,9 @@ signal action_selected(action_name: String)
 
 ## --- Configuración Visual (Premium UI) ---
 const MENU_WIDTH: float = 180.0
-const ITEM_HEIGHT: float = 36.0
-const MENU_PADDING: float = 8.0
-const HEADER_HEIGHT: float = 24.0
+const ITEM_HEIGHT: float = 28.0
+const MENU_PADDING: float = 6.0
+const HEADER_HEIGHT: float = 18.0
 const FONT_SIZE: int = 12
 const FONT_SIZE_SMALL: int = 10
 const CORNER_RADIUS: float = 12.0
@@ -36,6 +36,7 @@ var _menu_items: Array = [
 	{"type": ItemType.ACTION, "emoji": "🍎", "label": "Alimentar", "id": "feed"},
 	{"type": ItemType.ACTION, "emoji": "🎮", "label": "Jugar", "id": "play"},
 	{"type": ItemType.ACTION, "emoji": "💤", "label": "Descansar", "id": "rest"},
+	{"type": ItemType.ACTION, "emoji": "🔄", "label": "Cambiar Avatar", "id": "switch_avatar"},
 	{"type": ItemType.SEPARATOR},
 	{"type": ItemType.HEADER, "text": "Sistema"},
 	{"type": ItemType.ACTION, "emoji": "📦", "label": "Inventario", "id": "inventory"},
@@ -110,8 +111,7 @@ func _gui_input(event: InputEvent) -> void:
 				if item.type == ItemType.ACTION:
 					_trigger_click_feedback(_hovered_index)
 					_execute_action(item.id)
-					if item.id == "quit":
-						hide_menu()
+					hide_menu()
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 			hide_menu()
 

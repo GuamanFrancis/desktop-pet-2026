@@ -8,6 +8,7 @@ signal user_action_triggered(action_type: String)
 
 ## --- Referencias a Nodos de Escena ---
 @onready var pet_sprite: Node2D = $PetCanvas/PetSprite
+@onready var aqua_sprite: Node2D = $PetCanvas/AquaSprite
 @onready var pet_canvas: Node2D = $PetCanvas
 @onready var dialogue_bubble: Control = $PetCanvas/DialogueBubble
 @onready var notification_toast: Control = $PetCanvas/NotificationToast
@@ -17,7 +18,11 @@ signal user_action_triggered(action_type: String)
 var state_machine: PetStateMachine = null
 var pet_movement: Node = null
 var particles: Node2D = null
+var aqua_particles: Node2D = null
 var ai_brain: Node = null
+
+## --- Avatar activo ---
+var _active_avatar: String = "dino"  # "dino" o "aqua"
 
 ## --- Timers ---
 var _stats_log_timer: float = 0.0
@@ -34,8 +39,9 @@ func _ready() -> void:
 	_connect_stats_signals()
 	_setup_systems()
 	_connect_ui()
+	_apply_active_avatar()
 	
-	print("[Main] ✅ Entorno inicializado — 7 sistemas activos.")
+	print("[Main] ✅ Entorno inicializado — Avatar activo: %s" % _active_avatar)
 	_print_stats_summary()
 
 
@@ -107,10 +113,16 @@ func _setup_systems() -> void:
 	pet_movement.movement_completed.connect(_on_movement_completed)
 	pet_movement.facing_changed.connect(_on_facing_changed)
 	
-	# ParticleEffects
+	# ParticleEffects (Dino)
 	particles = preload("res://systems/particle_effects.gd").new()
 	particles.name = "Particles"
 	pet_sprite.add_child(particles)
+	
+	# ParticleEffects (Aqua)
+	if is_instance_valid(aqua_sprite):
+		aqua_particles = preload("res://systems/particle_effects.gd").new()
+		aqua_particles.name = "AquaParticles"
+		aqua_sprite.add_child(aqua_particles)
 	
 	# AI Brain
 	ai_brain = preload("res://systems/ai_brain.gd").new()
@@ -147,9 +159,9 @@ func _connect_stats_signals() -> void:
 
 func _on_level_up(new_level: int) -> void:
 	print("[Main] 🎉 ¡La mascota subió al nivel %d!" % new_level)
-	# Partículas
-	if particles:
-		particles.play_effect(particles.EffectType.STARS, 2.0)
+	var p := _get_active_particles()
+	if p:
+		p.play_effect(p.EffectType.STARS, 2.0)
 	# Toast
 	if is_instance_valid(notification_toast):
 		notification_toast.show_toast("⭐", "¡Nivel %d!" % new_level, Color(1.0, 0.85, 0.3))
@@ -162,31 +174,67 @@ func _on_level_up(new_level: int) -> void:
 
 
 func _on_stat_changed(_stat_name: String, _new_value: float) -> void:
-	if is_instance_valid(pet_sprite) and pet_sprite.has_method("update_mood_color"):
-		var mood := SaveManager.pet_stats.get_overall_mood()
-		pet_sprite.call("update_mood_color", mood)
+	var mood := SaveManager.pet_stats.get_overall_mood()
+	var sprite := _get_active_sprite()
+	if is_instance_valid(sprite) and sprite.has_method("update_mood_color"):
+		sprite.call("update_mood_color", mood)
+
+
+## --- Avatar Switching ---
+
+func switch_avatar() -> void:
+	_active_avatar = "aqua" if _active_avatar == "dino" else "dino"
+	_apply_active_avatar()
+	print("[Main] 🔄 Avatar cambiado a: %s" % _active_avatar)
+	if is_instance_valid(notification_toast):
+		var name := "Dino" if _active_avatar == "dino" else "Aqua"
+		notification_toast.show_toast("🔄", "Avatar: %s" % name)
+
+
+func _apply_active_avatar() -> void:
+	var show_dino := _active_avatar == "dino"
+	var show_aqua := _active_avatar == "aqua"
+	if is_instance_valid(pet_sprite):
+		pet_sprite.visible = show_dino
+	if is_instance_valid(aqua_sprite):
+		aqua_sprite.visible = show_aqua
+
+
+func _get_active_sprite() -> Node2D:
+	if _active_avatar == "aqua" and is_instance_valid(aqua_sprite):
+		return aqua_sprite
+	return pet_sprite
+
+
+func _get_active_particles() -> Node2D:
+	if _active_avatar == "aqua":
+		return aqua_particles
+	return particles
 
 
 ## --- Señales de State Machine ---
 
 func _on_state_changed(old_state: PetStateMachine.State, new_state: PetStateMachine.State) -> void:
-	# Visual
-	if is_instance_valid(pet_sprite):
-		var state_visual := _state_to_visual_name(new_state)
-		pet_sprite.call("set_visual_state", state_visual)
+	var state_visual := _state_to_visual_name(new_state)
+
+	# Visual — solo avatar activo
+	var sprite := _get_active_sprite()
+	if is_instance_valid(sprite) and sprite.has_method("set_visual_state"):
+		sprite.call("set_visual_state", state_visual)
 	
-	# Partículas
-	if particles:
-		particles.stop_effect()
+	# Partículas — solo avatar activo
+	var p := _get_active_particles()
+	if p:
+		p.stop_effect()
 		match new_state:
 			PetStateMachine.State.SLEEPING:
-				particles.play_continuous(particles.EffectType.ZZZ)
+				p.play_continuous(p.EffectType.ZZZ)
 			PetStateMachine.State.EATING:
-				particles.play_effect(particles.EffectType.FOOD, 2.5)
+				p.play_effect(p.EffectType.FOOD, 2.5)
 			PetStateMachine.State.PLAYING:
-				particles.play_effect(particles.EffectType.STARS, 3.0)
+				p.play_effect(p.EffectType.STARS, 3.0)
 			PetStateMachine.State.SAD:
-				particles.play_continuous(particles.EffectType.TEARS)
+				p.play_continuous(p.EffectType.TEARS)
 	
 	# Audio por estado
 	if AudioManager:
@@ -237,11 +285,9 @@ func _on_dialogue_requested(text: String) -> void:
 
 
 func _on_facing_changed(facing_right: bool) -> void:
-	if is_instance_valid(pet_sprite) and pet_sprite.has_method("set_facing_direction"):
-		pet_sprite.call("set_facing_direction", facing_right)
-
-
-## --- AI Brain ---
+	var sprite := _get_active_sprite()
+	if is_instance_valid(sprite) and sprite.has_method("set_facing_direction"):
+		sprite.call("set_facing_direction", facing_right)
 
 
 ## --- Acciones del Usuario ---
@@ -255,6 +301,8 @@ func _on_context_menu_action(action_name: String) -> void:
 		"rest":
 			if state_machine:
 				state_machine.transition_to(PetStateMachine.State.SLEEPING)
+		"switch_avatar":
+			switch_avatar()
 		"inventory":
 			if inventory_panel:
 				inventory_panel.show_panel(get_viewport_rect().size / 2.0)

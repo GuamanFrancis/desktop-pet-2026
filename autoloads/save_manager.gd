@@ -169,14 +169,14 @@ func _deserialize_from_dict(data: Dictionary) -> bool:
 	# Verificar integridad
 	if data.has("checksum"):
 		var expected := JSON.stringify(data["pet"]).sha256_text()
-		if expected != data["checksum"] as String:
+		if expected != str(data["checksum"]):
 			push_warning("[SaveManager] ⚠️ ¡Checksum inválido! Posible manipulación.")
 			# Aún así cargamos, pero advertimos
 	
 	# PetStats
 	pet_stats = PetStats.new()
 	var pet_data: Dictionary = data["pet"] as Dictionary
-	pet_stats.pet_name = pet_data.get("name", "Mascota") as String
+	pet_stats.pet_name = str(pet_data.get("name", "Mascota"))
 	pet_stats.level = int(pet_data.get("level", 1))
 	pet_stats.xp = int(pet_data.get("xp", 0))
 	pet_stats.xp_to_next_level = int(pet_data.get("xp_next", 100))
@@ -189,10 +189,10 @@ func _deserialize_from_dict(data: Dictionary) -> bool:
 	if data.has("inventory"):
 		for item_dict: Dictionary in data["inventory"]:
 			var item := ItemData.new()
-			item.item_id = item_dict.get("id", "") as String
-			item.display_name = item_dict.get("name", "") as String
-			item.description = item_dict.get("desc", "") as String
-			item.item_type = int(item_dict.get("type", 0))
+			item.item_id = str(item_dict.get("id", ""))
+			item.display_name = str(item_dict.get("name", ""))
+			item.description = str(item_dict.get("desc", ""))
+			item.item_type = int(item_dict.get("type", 0)) as ItemData.ItemType
 			item.stackable = bool(item_dict.get("stackable", false))
 			item.quantity = int(item_dict.get("quantity", 1))
 			item.stat_effects = item_dict.get("effects", {}) as Dictionary
